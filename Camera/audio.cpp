@@ -95,7 +95,7 @@ void Audio::StandartLoad()
 
 void Audio::ChangeAudio(int index)
 {
-    if (index < availableDevices.size())
+    if (index >= 0 && index < availableDevices.size())
     {
         emit ResetBar();
         LoadAudio(index);

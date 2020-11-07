@@ -7,6 +7,13 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi((QMainWindow*)this);
+
+    QPixmap bkgnd("backgr.jpg");
+    bkgnd = bkgnd.scaled(this->size(), Qt::IgnoreAspectRatio);
+    QPalette palette;
+    palette.setBrush(QPalette::Background, bkgnd);
+    this->setPalette(palette);
+
     cam.reset(new Camera(GetCameraPlacement()));
     cam->setParent(this);
 
@@ -32,12 +39,22 @@ MainWindow::MainWindow(QWidget *parent)
 
     UpdateAudioComboBox(audio->GetAvailableDevices());
 
-    ConnectUpdateButton();
-
     emit AudioIsReadyToUse();
 
+    screen.reset(new Screen);
+    screen->setParent(this);
+
+    connect(screen.data(), SIGNAL(ClearComboBox()), this, SLOT(ClearScreenComboBox()));
+    connect(screen.data(), SIGNAL(UpdateDevices(QList<QScreen*>)), this, SLOT(UpdateScreenComboBox(QList<QScreen*>)));
+    connect(ui->AvailableScreens, SIGNAL(currentIndexChanged(int)), screen.data(), SLOT(ChangeScreen(int)));
+    connect(ui->screenshotButton, SIGNAL(released()), screen.data(), SLOT(GetScreenShot()));
+
+    UpdateScreenComboBox(screen->GetAvailableScreens());
+
+    ConnectUpdateButton();
+
     ConnectRecordButton();
-    QObject::connect(cam.data(), SIGNAL(StopAllRecords(QString)), this, SLOT(StopRecord(QString)));
+    connect(ui->stopRecord, SIGNAL(released()), this, SLOT(StopRecord()));
 }
 
 void MainWindow::AddCamToComboBox(const QCameraInfo& caminfo)
@@ -69,11 +86,13 @@ void MainWindow::ConnectUpdateButton()
 {
     QObject::connect(ui->updateButton, SIGNAL(released()), cam.data(), SLOT(UpdateDevices()));
     QObject::connect(ui->updateButton, SIGNAL(released()), audio.data(), SLOT(UpdateDevices()));
+    connect(ui->updateButton, SIGNAL(released()), screen.data(), SLOT(UpdateDevices()));
 }
 
 void MainWindow::ConnectRecordButton()
 {
-    QObject::connect(ui->recordButton, SIGNAL(released()), this, SLOT(StartRecord()));
+    QObject::connect(ui->recordButton, SIGNAL(released()), this, SLOT(StartRecordCameraAndAudio()));
+    connect(ui->recordScreenAudButton, SIGNAL(released()), this, SLOT(StartRecordScreenAndAudio()));
 }
 
 void MainWindow::ClearCamComboBox()
@@ -84,6 +103,11 @@ void MainWindow::ClearCamComboBox()
 void MainWindow::ClearAudioComboBox()
 {
     ui->AvailableAudioDevices->clear();
+}
+
+void MainWindow::ClearScreenComboBox()
+{
+    ui->AvailableScreens->clear();
 }
 
 void MainWindow::UpdateCamComboBox(QList<QCameraInfo> availableCameras)
@@ -112,8 +136,10 @@ void MainWindow::ResetBar()
     ui->VolumeChange->setValue(100);
 }
 
-void MainWindow::StartRecord()
+void MainWindow::StartRecordCameraAndAudio()
 {
+    is_recording_camera = true;
+
     time_t rawtime;
     struct tm * timeinfo;
     char buffer[80];
@@ -124,24 +150,128 @@ void MainWindow::StartRecord()
     strftime(buffer,sizeof(buffer),"%d-%m-%Y %H-%M-%S",timeinfo);
     QString filename = static_cast<QString>(buffer);
 
+    output_filename = filename;
+
     ui->recordButton->setEnabled(false);
-    audio->StartRecord(filename);
+    ui->recordScreenAudButton->setEnabled(false);
+    ui->stopRecord->setEnabled(true);
+    ui->updateButton->setEnabled(false);
     cam->StartRecord(filename);
+    audio->StartRecord(filename);
 }
 
-void MainWindow::StopRecord(QString _filename)
+void MainWindow::StopRecordCameraAndAudio()
 {
     audio->StopRecord();
+    cam->StopRecord();
     ui->recordButton->setEnabled(true);
-    std::string VideoFile = "output " + _filename.toStdString() + ".avi";
-    std::string AudioFile = _filename.toStdString() + ".wav";
+    ui->recordScreenAudButton->setEnabled(true);
+    ui->stopRecord->setEnabled(false);
+    ui->updateButton->setEnabled(true);
+    QString VideoFile = "output " + output_filename + ".avi";
+    QString AudioFile = output_filename + ".wav";
 
-    qDebug() << (QDir::currentPath().toStdString() + "/ffmpeg/ffmpeg.exe" + " -i " + '"' + QDir::currentPath().toStdString() + '/' + VideoFile + '"' + " -i " + '"' + QDir::currentPath().toStdString() + '/' + AudioFile + '"' + ' ' + '"' + QDir::currentPath().toStdString() + '/' + "final " + _filename.toStdString() + ".avi\"").c_str();
-    QProcess* console = new QProcess;
-    console->start((QDir::currentPath().toStdString() + "/ffmpeg/ffmpeg.exe" + " -i " + '"' + QDir::currentPath().toStdString() + '/' + VideoFile + '"' + " -i " + '"' + QDir::currentPath().toStdString() + '/' + AudioFile + '"' + ' ' + '"' + QDir::currentPath().toStdString() + '/' + "final " + _filename.toStdString() + ".avi\"").c_str());
-    //console->waitForReadyRead();
-    //system((QDir::currentPath().toStdString() + "/ffmpeg/ffmpeg.exe" + " -i " + '"' + QDir::currentPath().toStdString() + '/' + VideoFile + '"' + " -i " + '"' + QDir::currentPath().toStdString() + '/' + AudioFile + '"' + ' ' + '"' + QDir::currentPath().toStdString() + '/' + "final " + _filename.toStdString() + ".avi\"").c_str());
+    const QStringList arguments =
+    {
+        "-i",
+        QDir::currentPath() + '/' + VideoFile,
+        "-i",
+        QDir::currentPath() + '/' + AudioFile,
+        "-qscale",
+        "0",
+        QDir::currentPath() + '/' + "camera and audio " + output_filename + ".avi"
+    };
+
+    QProcess proc;
+    proc.start(QDir::currentPath() + "/ffmpeg/ffmpeg.exe", arguments);
+    proc.waitForFinished();
+    proc.close();
+
+    RemoveFile(VideoFile);
+    RemoveFile(AudioFile);
 }
+
+void MainWindow::StartRecordScreenAndAudio()
+{
+    is_recording_camera = false;
+
+    time_t rawtime;
+    struct tm * timeinfo;
+    char buffer[80];
+
+    time (&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    strftime(buffer,sizeof(buffer),"%d-%m-%Y %H-%M-%S",timeinfo);
+    QString filename = static_cast<QString>(buffer);
+
+    output_filename = filename;
+
+    ui->recordButton->setEnabled(false);
+    ui->recordScreenAudButton->setEnabled(false);
+    ui->stopRecord->setEnabled(true);
+    ui->updateButton->setEnabled(false);
+    audio->StartRecord(filename);
+    screen->StartRecord(filename);
+}
+
+void MainWindow::StopRecordScreenAndAudio()
+{
+    audio->StopRecord();
+    screen->StopRecord();
+    ui->recordButton->setEnabled(true);
+    ui->recordScreenAudButton->setEnabled(true);
+    ui->stopRecord->setEnabled(false);
+    ui->updateButton->setEnabled(true);
+    QString ScreenFile = "Screen " + output_filename + ".avi";
+    QString AudioFile = output_filename + ".wav";
+
+    const QStringList arguments =
+    {
+        "-i",
+        QDir::currentPath() + '/' + ScreenFile,
+        "-i",
+        QDir::currentPath() + '/' + AudioFile,
+        "-qscale",
+        "0",
+        QDir::currentPath() + '/' + "screen and audio " + output_filename + ".avi"
+    };
+
+    QProcess proc;
+    proc.start(QDir::currentPath() + "/ffmpeg/ffmpeg.exe", arguments);
+    proc.waitForFinished();
+    proc.close();
+
+    RemoveFile(ScreenFile);
+    RemoveFile(AudioFile);
+}
+
+void MainWindow::StopRecord()
+{
+    if (is_recording_camera)
+    {
+        StopRecordCameraAndAudio();
+    }
+    else
+    {
+        StopRecordScreenAndAudio();
+    }
+}
+
+void MainWindow::UpdateScreenComboBox(QList<QScreen *> availableScreens)
+{
+    for (auto& screen : availableScreens)
+    {
+        ui->AvailableScreens->addItem(screen->name());
+    }
+}
+
+void MainWindow::RemoveFile(QString &filename)
+{
+    QFile file(filename);
+    file.remove();
+}
+
 
 QWidget *MainWindow::GetCamsBox()
 {

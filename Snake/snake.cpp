@@ -8,6 +8,10 @@ void Snake::MakeMove()
     {
         GenerateApple();
         snake.push_back(qMakePair(-1, -1));
+        if (timer->interval() > 270)
+        {
+            timer->setInterval(timer->interval() - 10);
+        }
     }
 
     PullSnake();

@@ -11,6 +11,7 @@
 #include <QtMultimediaWidgets/QCameraViewfinder>
 #include <opencv2/opencv.hpp>
 #include <ctime>
+#include <QTimer>
 
 class Camera : public QObject
 {
@@ -27,6 +28,8 @@ private:
     QScopedPointer<QCameraViewfinderSettings> curCameraViewFinderSettings;
     QScopedPointer<QCameraImageCapture> imageCapture;
     cv::VideoCapture recorder;
+    QScopedPointer<cv::VideoWriter> writer;
+    QScopedPointer<QTimer> timer;
 
     void LoadCamera();
     void LoadCamera(int index);
@@ -51,7 +54,9 @@ public slots:
     void ChangeCamera(int index);
     void CamError(QCamera::Status status);
     void StartRecord(QString& filename);
+    void StopRecord();
     void StandartLoad();
+    void cvRecord();
 
 };
 

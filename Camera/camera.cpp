@@ -4,6 +4,9 @@ Camera::Camera(QWidget* CameraPlacement)
 {
     camera_placement = CameraPlacement;
     availableCameras = QCameraInfo::availableCameras();
+    timer.reset(new QTimer);
+    timer->setInterval(5);
+    connect(timer.data(), SIGNAL(timeout()), this, SLOT(cvRecord()));
 
     ConnectCameraStatus();
 }
@@ -109,7 +112,7 @@ void Camera::CamError(QCamera::Status status)
 
         case QCamera::Status::StandbyStatus:
         {
-            msgBox.setText("Camera statis: Standby");
+            msgBox.setText("Camera status: Standby");
             msgBox.exec();
             break;
         }
@@ -128,8 +131,9 @@ void Camera::StartRecord(QString& filename)
     QObject::disconnect(curCamera.data(), SIGNAL(statusChanged(QCamera::Status)), this, SLOT(CamError(QCamera::Status)));
     curCamera->unload();
     curCamera->stop();
+    ConnectCameraStatus();
 
-    cv::Mat frame;
+    //cv::Mat frame;
     recorder.open(curCameraIndex);
     double fps = 30;
     cv::Size size(resolutions[resolutions.size() - 1].width(), resolutions[resolutions.size() - 1].height());
@@ -143,11 +147,13 @@ void Camera::StartRecord(QString& filename)
         size.height = resolutions[0].height();
     }
 
-    cv::VideoWriter _recorder("output " + filename.toStdString() + ".avi", CV_FOURCC('X','V','I','D'), fps, size);
+    //cv::VideoWriter _recorder("output " + filename.toStdString() + ".avi", CV_FOURCC('X','V','I','D'), fps, size);
+    writer.reset(new cv::VideoWriter("output " + filename.toStdString() + ".avi", CV_FOURCC('X','V','I','D'), fps, size));
 
-    cv::namedWindow("Record");
+    //cv::namedWindow("Record");
 
-    while (recorder.isOpened() && recorder.read(frame))
+    timer->start();
+    /*while (recorder.isOpened() && recorder.read(frame))
     {
         if (cv::getWindowProperty("Record", cv::WND_PROP_VISIBLE) <= 0)
         {
@@ -161,14 +167,26 @@ void Camera::StartRecord(QString& filename)
         //ShowImage(label.data(), &image);
         cv::imshow("Record", frame);
         cv::waitKey(10);
-    }
+    }*/
 
-    recorder.release();
+    /*recorder.release();
     _recorder.release();
 
     curCamera->load();
     curCamera->start();
-    ConnectCameraStatus();
+    ConnectCameraStatus();*/
+}
+
+void Camera::StopRecord()
+{
+    timer->stop();
+    recorder.release();
+    writer->release();
+    writer.reset();
+
+    curCamera->load();
+    curCamera->start();
+    //ConnectCameraStatus();
 }
 
 void Camera::StandartLoad()
@@ -182,6 +200,15 @@ void Camera::StandartLoad()
         QMessageBox msg;
         msg.setText("No cameras detected");
         msg.exec();
+    }
+}
+
+void Camera::cvRecord()
+{
+    cv::Mat frame;
+    if (recorder.isOpened() && recorder.read(frame))
+    {
+        writer->write(frame);
     }
 }
 

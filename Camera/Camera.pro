@@ -15,12 +15,14 @@ SOURCES += \
     audio.cpp \
     camera.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    screen.cpp
 
 HEADERS += \
     audio.h \
     camera.h \
-    mainwindow.h
+    mainwindow.h \
+    screen.h
 
 FORMS += \
     mainwindow.ui
@@ -35,6 +37,8 @@ LIBS += C:\OpenCV\opencv-build\bin\libopencv_features2d343.dll
 LIBS += C:\OpenCV\opencv-build\bin\libopencv_calib3d343.dll
 LIBS += C:\OpenCV\opencv-build\bin\libopencv_video343.dll
 LIBS += C:\OpenCV\opencv-build\bin\libopencv_videoio343.dll
+
+RC_ICONS = multimediaworker.ico
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
