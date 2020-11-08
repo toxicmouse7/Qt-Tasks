@@ -3,7 +3,7 @@
 Screen::Screen(QObject *parent) : QObject(parent)
 {
     available_screens = QGuiApplication::screens();
-    cur_screen.reset(available_screens[0]);
+    cur_screen = available_screens[0];
     timer.reset(new QTimer);
     timer->setInterval(27);
     connect(timer.data(), SIGNAL(timeout()), this, SLOT(GetScreenForRec()));
@@ -16,7 +16,7 @@ QList<QScreen *> Screen::GetAvailableScreens()
 
 void Screen::LoadScreen(int index)
 {
-    cur_screen.reset(available_screens[index]);
+    cur_screen = available_screens[index];
 }
 
 void Screen::UpdateDevices()

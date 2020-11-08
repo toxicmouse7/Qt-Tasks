@@ -133,10 +133,15 @@ void Camera::StartRecord(QString& filename)
     curCamera->stop();
     ConnectCameraStatus();
 
-    //cv::Mat frame;
+    cv::Mat src;
     recorder.open(curCameraIndex);
+
+    recorder >> src;
+
+    int codec = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
+
     double fps = 30;
-    cv::Size size(resolutions[resolutions.size() - 1].width(), resolutions[resolutions.size() - 1].height());
+    /*cv::Size size(resolutions[resolutions.size() - 1].width(), resolutions[resolutions.size() - 1].height());
 
     if (size.width > 1920)
     {
@@ -145,12 +150,12 @@ void Camera::StartRecord(QString& filename)
     if (size.height > 1080)
     {
         size.height = resolutions[0].height();
-    }
+    }*/
 
     //cv::VideoWriter _recorder("output " + filename.toStdString() + ".avi", CV_FOURCC('X','V','I','D'), fps, size);
-    writer.reset(new cv::VideoWriter("output " + filename.toStdString() + ".avi", CV_FOURCC('X','V','I','D'), fps, size));
+    writer.reset(new cv::VideoWriter("output " + filename.toStdString() + ".avi", codec, fps, src.size()));
 
-    //cv::namedWindow("Record");
+    cv::namedWindow("Live");
 
     timer->start();
     /*while (recorder.isOpened() && recorder.read(frame))
@@ -209,6 +214,7 @@ void Camera::cvRecord()
     if (recorder.isOpened() && recorder.read(frame))
     {
         writer->write(frame);
+        cv::imshow("Live", frame);
     }
 }
 

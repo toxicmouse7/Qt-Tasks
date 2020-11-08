@@ -19,7 +19,7 @@ public:
 
 private:
     QList<QScreen*> available_screens;
-    QScopedPointer<QScreen> cur_screen;
+    QScreen* cur_screen = QGuiApplication::primaryScreen();
     QString current_file;
     int starting_index = 0;
     clock_t last_used_time = 0;
