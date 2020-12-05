@@ -82,7 +82,7 @@ void Client::RecieveData()
         {
             while (ui->chatWidget->count() >= 10)
             {
-                ui->chatWidget->removeItemWidget(ui->chatWidget->item(0));
+                delete ui->chatWidget->item(0);
             }
 
             QString message;

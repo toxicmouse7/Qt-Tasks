@@ -15,8 +15,8 @@ Server::Server(QWidget *parent)
     connect(ui->logsWidget->model(), SIGNAL(rowsInserted(QModelIndex,int,int)), ui->logsWidget, SLOT(scrollToBottom()));
     connect(ui->chatWidget->model(), SIGNAL(rowsInserted(QModelIndex,int,int)), ui->chatWidget, SLOT(scrollToBottom()));
     connect(ui->makeAdminButton, SIGNAL(released()), this, SLOT(MakeAdmin()));
-
-    TcpServer->listen(QHostAddress("127.0.0.1"), 4000);
+    //QHostAddress("127.0.0.1")
+    TcpServer->listen(QHostAddress::Any, 4000);
 
     if (!TcpServer->isListening())
  {
